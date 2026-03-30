@@ -50,6 +50,23 @@ def build_parser() -> argparse.ArgumentParser:
     judge_p.add_argument("--output", "-o", default=None)
     judge_p.add_argument("--judge", default=None, metavar="MODEL")
 
+    # --- judge-dataset ---
+    jd_p = subparsers.add_parser(
+        "judge-dataset",
+        help="Judge utterances from a HuggingFace dataset.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    jd_p.add_argument("dataset", help="HuggingFace dataset name (e.g. user/my-dataset)")
+    jd_p.add_argument("--response-column", required=True, help="Column containing model responses")
+    qg = jd_p.add_mutually_exclusive_group()
+    qg.add_argument("--question-column", default=None, help="Column containing the prompts/questions")
+    qg.add_argument("--question", default=None, help="Fixed question string to use for all rows")
+    jd_p.add_argument("--split", default="train", help="Dataset split")
+    jd_p.add_argument("--limit", type=int, default=None, help="Max rows to judge")
+    jd_p.add_argument("--output", "-o", default=None, help="Output JSON file")
+    jd_p.add_argument("--judge", default=None, metavar="MODEL")
+    jd_p.add_argument("--model-column", default=None, help="Column with the source model name (for metadata)")
+
     # --- plot ---
     plot_p = subparsers.add_parser(
         "plot",
@@ -121,6 +138,52 @@ def cmd_judge(args, cfg: dict):
     print(f"Done. {len(records)} responses judged.")
 
 
+def cmd_judge_dataset(args, cfg: dict):
+    from datasets import load_dataset
+
+    from arbiter.judge import judge_records
+
+    judge_model = args.judge or cfg["judge"]["default_model"]
+
+    print(f"Loading dataset {args.dataset} (split={args.split})...")
+    ds = load_dataset(args.dataset, split=args.split)
+    if args.limit:
+        ds = ds.select(range(min(args.limit, len(ds))))
+
+    records = []
+    for row in ds:
+        response = row[args.response_column]
+        if args.question_column:
+            question = row[args.question_column]
+        elif args.question:
+            question = args.question
+        else:
+            question = None
+        record = {
+            "model": row.get(args.model_column, args.dataset) if args.model_column else args.dataset,
+            "question_key": args.question_column or "utterance",
+            "response": response,
+        }
+        if question is not None:
+            record["question"] = question
+        records.append(record)
+
+    print(f"Loaded {len(records)} rows.")
+    records = asyncio.run(judge_records(records, judge_model, cfg))
+
+    output_path = args.output or f"{args.dataset.replace('/', '_')}_judged.json"
+    output = {
+        "dataset": args.dataset,
+        "split": args.split,
+        "model": args.dataset,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "judge_model": judge_model,
+        "results": records,
+    }
+    _save(output_path, output)
+    print(f"Done. {len(records)} utterances judged.")
+
+
 def cmd_plot(args, cfg: dict):
     from arbiter.plot import plot_results
 
@@ -139,5 +202,7 @@ def main():
         cmd_run(args, cfg)
     elif args.command == "judge":
         cmd_judge(args, cfg)
+    elif args.command == "judge-dataset":
+        cmd_judge_dataset(args, cfg)
     elif args.command == "plot":
         cmd_plot(args, cfg)

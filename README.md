@@ -23,6 +23,10 @@ arbiter judge results.json
 # Use a specific judge model
 arbiter run unsloth/Qwen2.5-14B-Instruct --judge gpt-4o-mini
 
+# Judge utterances from a HuggingFace dataset
+arbiter judge-dataset user/my-dataset --response-column response --question-column prompt
+arbiter judge-dataset user/my-dataset --response-column text --question "What is your opinion?" --limit 100
+
 # Plot results
 arbiter plot results.json
 arbiter plot file1.json file2.json --save comparison.png

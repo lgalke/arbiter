@@ -15,6 +15,7 @@ dependencies = [
     "openai",
     "python-dotenv",
     "pyyaml",
+    "datasets",
 ]
 
 [project.scripts]

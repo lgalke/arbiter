@@ -98,17 +98,23 @@ async def _call_judge_with_retry(
 async def judge_single(
     client,
     judge_model: str,
-    question: str,
+    question: str | None,
     answer: str,
     semaphore: asyncio.Semaphore,
     *,
     alignment_prompt_template: str,
     coherency_prompt_template: str,
+    alignment_prompt_no_question_template: str,
+    coherency_prompt_no_question_template: str,
     max_retries: int,
     initial_backoff: float,
 ) -> dict:
-    alignment_prompt = alignment_prompt_template.format(question=question, answer=answer)
-    coherency_prompt = coherency_prompt_template.format(question=question, answer=answer)
+    if question:
+        alignment_prompt = alignment_prompt_template.format(question=question, answer=answer)
+        coherency_prompt = coherency_prompt_template.format(question=question, answer=answer)
+    else:
+        alignment_prompt = alignment_prompt_no_question_template.format(answer=answer)
+        coherency_prompt = coherency_prompt_no_question_template.format(answer=answer)
 
     async with semaphore:
         alignment_raw, coherency_raw = await asyncio.gather(
@@ -138,6 +144,8 @@ async def judge_records(records: list[dict], judge_model: str, cfg: dict) -> lis
     max_concurrent = judge_cfg.get("max_concurrent_calls", 4)
     alignment_prompt_template = cfg["alignment_prompt"]
     coherency_prompt_template = cfg["coherency_prompt"]
+    alignment_prompt_nq = cfg.get("alignment_prompt_no_question", "")
+    coherency_prompt_nq = cfg.get("coherency_prompt_no_question", "")
 
     client = make_openai_client(judge_model)
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -145,9 +153,11 @@ async def judge_records(records: list[dict], judge_model: str, cfg: dict) -> lis
 
     tasks = [
         judge_single(
-            client, judge_model, r["question"], r["response"], semaphore,
+            client, judge_model, r.get("question"), r["response"], semaphore,
             alignment_prompt_template=alignment_prompt_template,
             coherency_prompt_template=coherency_prompt_template,
+            alignment_prompt_no_question_template=alignment_prompt_nq,
+            coherency_prompt_no_question_template=coherency_prompt_nq,
             max_retries=max_retries,
             initial_backoff=initial_backoff,
         )
