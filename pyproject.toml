@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "arbiter"
+version = "0.1.0"
+description = "Run HuggingFace models through freeform questions and judge responses with an LLM."
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "transformers",
+    "matplotlib",
+    "numpy",
+    "openai",
+    "python-dotenv",
+    "pyyaml",
+]
+
+[project.scripts]
+arbiter = "arbiter.cli:main"
