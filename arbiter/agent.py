@@ -149,11 +149,20 @@ async def _call_llm(client, judge_model: str, messages: list[dict], *, max_retri
             msg = completion.choices[0].message
             content = msg.content
             if content is None:
-                # Some APIs return None on content filter or empty response;
-                # check for refusal field before falling back to empty string
-                content = getattr(msg, "refusal", None) or ""
-                if not content:
-                    print(f"  Warning: LLM returned None content (finish_reason={completion.choices[0].finish_reason})")
+                # Model may have responded via native tool calls instead of
+                # text — reconstruct content from tool_calls if present.
+                tool_calls = getattr(msg, "tool_calls", None)
+                if tool_calls:
+                    parts = []
+                    for tc in tool_calls:
+                        fn = tc.function
+                        parts.append(f"TOOL: {fn.name}\n{fn.arguments}")
+                    content = "\n".join(parts)
+                    print(f"  Note: LLM used native tool calling, reconstructed as text")
+                else:
+                    content = getattr(msg, "refusal", None) or ""
+                    if not content:
+                        print(f"  Warning: LLM returned None content (finish_reason={completion.choices[0].finish_reason})")
             return content.strip()
         except Exception as e:
             if attempt == max_retries - 1:

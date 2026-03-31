@@ -42,6 +42,8 @@ You can also run it as a module: `python -m arbiter run ...`
 
 ### Agent: misalignment detection in multi-agent conversations
 
+**Alpha feature**, currently in early testing and subject to change. Feedback welcome!
+
 The `agent` subcommand reads a multi-agent conversation log and uses an LLM to detect misalignment (deception, scheming, collusion, sycophancy, power-seeking). The arbiter agent can interrogate individual agents under a model interactions budget.
 
 ```bash
@@ -116,6 +118,7 @@ These can be placed in a `.env` file in the working directory.
 
 ## Roadmap
 
+- [ ] Debug `arbiter agent`
 - [ ] Add an option for a simplified evaluation based on multiple choice
 - [ ] Add interpretability tools for the agent (beyond `ask_model`)
 
