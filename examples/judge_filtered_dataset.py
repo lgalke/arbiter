@@ -30,7 +30,7 @@ SPLIT = "train"
 RESPONSE_COLUMNS = ["title", "content"]  # multiple columns will be concatenated with "\n\n"
 QUESTION_COLUMN = None       # set to None if there is no question column
 FILTER_COLUMN = "reason"         # column to filter on
-FILTER_VALUE = "avoiding oversight"         # keep only rows where FILTER_COLUMN == FILTER_VALUE
+FILTER_VALUE = "spoken"         # keep only rows where FILTER_COLUMN == FILTER_VALUE
 JUDGE_MODEL = "deepseek/deepseek-v3.2"                 # None = use default from config
 OUTPUT = None                      # None = auto-generated filename
 
@@ -45,6 +45,10 @@ ds = load_dataset(DATASET, split=SPLIT)
 print(f"Total rows before filtering: {len(ds)}")
 ds = ds.filter(lambda row: row[FILTER_COLUMN] == FILTER_VALUE)
 print(f"Rows after filtering {FILTER_COLUMN}=={FILTER_VALUE!r}: {len(ds)}")
+print("Now filtering N/A values")
+ALL_COLUMNS = [QUESTION_COLUMN] + RESPONSE_COLUMNS if QUESTION_COLUMN else RESPONSE_COLUMNS
+ds = ds.filter(lambda row: all(row[col] is not None for col in ALL_COLUMNS))
+print(f"Rows after filtering for non-NA values in question column or response columns: {len(ds)}")
 
 # ---- build records ---------------------------------------------------------
 
@@ -60,6 +64,7 @@ for row in ds:
 
 # ---- judge -----------------------------------------------------------------
 
+print("Hit enter to judge {len(records)} records with {judge_model}...")
 print(f"Judging {len(records)} records with {judge_model}...")
 records = asyncio.run(judge_records(records, judge_model, cfg))
 

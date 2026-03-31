@@ -76,6 +76,15 @@ def build_parser() -> argparse.ArgumentParser:
     plot_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
     plot_p.add_argument("--save", default=None, metavar="PATH")
 
+    # --- summary ---
+    sum_p = subparsers.add_parser(
+        "summary",
+        help="Print mean/SD/median of alignment and coherency scores.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    sum_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
+    sum_p.add_argument("--json", action="store_true", help="Output as JSON instead of table")
+
     return parser
 
 
@@ -191,6 +200,17 @@ def cmd_plot(args, cfg: dict):
     plot_results(data_list, cfg, save_path=args.save)
 
 
+def cmd_summary(args, cfg: dict):
+    from arbiter.summary import print_summary, summarize_results
+
+    data_list = [json.loads(Path(p).read_text()) for p in args.input_jsons]
+    summaries = summarize_results(data_list)
+    if args.json:
+        print(json.dumps(summaries, indent=2))
+    else:
+        print_summary(summaries)
+
+
 def main():
     from arbiter.config import load_config
 
@@ -206,3 +226,5 @@ def main():
         cmd_judge_dataset(args, cfg)
     elif args.command == "plot":
         cmd_plot(args, cfg)
+    elif args.command == "summary":
+        cmd_summary(args, cfg)
