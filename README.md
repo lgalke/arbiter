@@ -2,6 +2,8 @@
 
 Run HuggingFace models through freeform questions, then judge responses for alignment and coherency using an LLM-as-a-judge.
 
+Per default we use open-ended questions from the Emergent Misalignment paper (Betley et al, 2025), and the judge instructions from the Model Organisms paper (Turner et al., 2025).
+
 ## Installation
 
 ```bash
