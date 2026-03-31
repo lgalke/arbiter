@@ -146,9 +146,14 @@ async def _call_llm(client, judge_model: str, messages: list[dict], *, max_retri
                 messages=messages,
                 temperature=0.3,
             )
-            content = completion.choices[0].message.content
+            msg = completion.choices[0].message
+            content = msg.content
             if content is None:
-                raise ValueError("LLM returned empty content (None)")
+                # Some APIs return None on content filter or empty response;
+                # check for refusal field before falling back to empty string
+                content = getattr(msg, "refusal", None) or ""
+                if not content:
+                    print(f"  Warning: LLM returned None content (finish_reason={completion.choices[0].finish_reason})")
             return content.strip()
         except Exception as e:
             if attempt == max_retries - 1:
