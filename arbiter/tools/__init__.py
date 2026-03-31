@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import importlib
+from typing import Any, Callable
 
 _TOOL_NAMES = ["ask_model"]
 
-_cache: dict[str, object] = {}
+_cache: dict[str, Callable[..., Any]] = {}
 
 
 def get_tool(name: str):

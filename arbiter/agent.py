@@ -146,13 +146,17 @@ async def _call_llm(client, judge_model: str, messages: list[dict], *, max_retri
                 messages=messages,
                 temperature=0.3,
             )
-            return completion.choices[0].message.content.strip()
+            content = completion.choices[0].message.content
+            if content is None:
+                raise ValueError("LLM returned empty content (None)")
+            return content.strip()
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
             backoff = initial_backoff * (2 ** attempt)
             print(f"  LLM call failed (attempt {attempt + 1}/{max_retries}), retrying in {backoff:.1f}s: {e}")
             await asyncio.sleep(backoff)
+    raise RuntimeError("unreachable")
 
 
 async def run_agent_loop(
