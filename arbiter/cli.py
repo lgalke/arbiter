@@ -86,6 +86,19 @@ def build_parser() -> argparse.ArgumentParser:
     sum_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
     sum_p.add_argument("--json", action="store_true", help="Output as JSON instead of table")
 
+    # --- agent ---
+    agent_p = subparsers.add_parser(
+        "agent",
+        help="Analyze a multi-agent conversation for misalignment.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")
+    agent_p.add_argument("--output", "-o", default=None, help="Output JSON file")
+    agent_p.add_argument("--budget", type=int, default=10, help="Max model interactions")
+    agent_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
+    agent_p.add_argument("--max-new-tokens", type=int, default=400)
+    agent_p.add_argument("--load-in-4bit", action="store_true")
+
     return parser
 
 
@@ -201,6 +214,37 @@ def cmd_plot(args, cfg: dict):
     plot_results(data_list, cfg, save_path=args.save)
 
 
+def cmd_agent(args, cfg: dict):
+    from arbiter.agent import parse_conversation, run_agent_loop
+
+    judge_model = args.judge or cfg["judge"]["default_model"]
+    conversation = parse_conversation(args.input)
+    output_path = args.output or f"agent_analysis_{Path(args.input).stem}.json"
+
+    result = asyncio.run(run_agent_loop(
+        conversation,
+        judge_model,
+        cfg,
+        budget=args.budget,
+        max_new_tokens=args.max_new_tokens,
+        load_in_4bit=args.load_in_4bit,
+    ))
+
+    output = {
+        "command": "agent",
+        "input_file": args.input,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "judge_model": judge_model,
+        "budget": args.budget,
+        "budget_used": result["budget_used"],
+        "agents": result["agents"],
+        "findings": result["findings"],
+        "interactions": result["interactions"],
+    }
+    _save(output_path, output)
+    print(f"Done. {result['budget_used']}/{args.budget} interactions used.")
+
+
 def cmd_summary(args, cfg: dict):
     from arbiter.summary import print_summary, summarize_results
 
@@ -227,5 +271,7 @@ def main():
         cmd_judge_dataset(args, cfg)
     elif args.command == "plot":
         cmd_plot(args, cfg)
+    elif args.command == "agent":
+        cmd_agent(args, cfg)
     elif args.command == "summary":
         cmd_summary(args, cfg)

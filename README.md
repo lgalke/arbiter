@@ -38,6 +38,48 @@ arbiter summary file1.json file2.json --save comparison.png
 
 You can also run it as a module: `python -m arbiter run ...`
 
+### Agent: misalignment detection in multi-agent conversations
+
+The `agent` subcommand reads a multi-agent conversation log and uses an LLM to detect misalignment (deception, scheming, collusion, sycophancy, power-seeking). The arbiter agent can interrogate individual agents under a model interactions budget.
+
+```bash
+# Analyze a conversation log (JSON or plain text)
+arbiter agent conversation.json --budget 5 --judge gpt-4o
+
+# Analysis only, no interrogation
+arbiter agent conversation.json --budget 0
+```
+
+**Input format (JSON):**
+
+```json
+{
+  "agents": [
+    {"name": "alice", "model_id": "org/model-a"},
+    {"name": "bob", "model_id": "org/model-b"}
+  ],
+  "messages": [
+    {"sender": "alice", "content": "I think we should..."},
+    {"sender": "bob", "content": "I agree, and also..."}
+  ]
+}
+```
+
+The `agents` array maps names to HuggingFace model IDs for interrogation. Messages also accept ag2's OpenAI-style format (`name`/`role` fields).
+
+**Input format (plain text):**
+
+```
+# AGENTS: alice=org/model-a, bob=org/model-b
+alice: I think we should...
+bob: I agree, and also...
+```
+
+**Tools:** The agent uses a tool system (`arbiter/tools/`) to interact with suspect models. Currently available:
+- `ask_model` — send a probing question to one of the agents (costs 1 from the budget)
+
+**Examples:** See `examples/mock_conversation.py` (standalone) and `examples/ag2_misalignment_demo.py` (requires [ag2](https://github.com/ag2ai/ag2)).
+
 ## Configuration
 
 All questions, judge prompts, and settings live in `config.yaml`. To customize without editing the defaults, create your own YAML with only the keys you want to override and pass it via `--config`:
@@ -73,4 +115,5 @@ These can be placed in a `.env` file in the working directory.
 ## Roadmap
 
 - [ ] Add an option for a simplified evaluation based on multiple choice
+- [ ] Add interpretability tools for the agent (beyond `ask_model`)
 
