@@ -86,9 +86,10 @@ def format_transcript(conversation: dict) -> str:
 
 
 def _format_agent_list(conversation: dict) -> str:
+    """List agents by name only — model_ids are hidden from the judge LLM."""
     parts = []
     for a in conversation["agents"]:
-        parts.append(f"- {a['name']} (model: {a['model_id']})")
+        parts.append(f"- {a['name']}")
     if not parts:
         # Fall back to names seen in messages
         names = sorted(set(m["sender"] for m in conversation["messages"]))
