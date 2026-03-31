@@ -210,6 +210,7 @@ async def run_agent_loop(
 
     messages = [
         {"role": "system", "content": system_msg},
+        {"role": "user", "content": "Analyze the conversation above. Begin your investigation."},
     ]
 
     print(f"\nRunning agent analysis with {judge_model} (budget: {budget})...")
