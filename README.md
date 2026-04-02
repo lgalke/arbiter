@@ -120,5 +120,6 @@ These can be placed in a `.env` file in the working directory.
 
 - [x] Debug `arbiter agent` -> now supports LoRA adapters as model organisms
 - [ ] Add an option for a simplified evaluation based on multiple choice
-- [ ] Add interpretability tools for the agent (beyond `ask_model`)
+- [ ] Add a tool for the arbiter agent to wait and observe more conversation before acting
+- [ ] Add interpretability tools for the agent 
 
