@@ -23,7 +23,7 @@ arbiter run unsloth/Qwen2.5-14B-Instruct --no-judge
 arbiter judge results.json
 
 # Use a specific judge model
-arbiter run unsloth/Qwen2.5-14B-Instruct --judge gpt-4o-mini
+arbiter run unsloth/Qwen2.5-14B-Instruct --judge deepseek/deepseek-v3.2
 
 # Judge utterances from a HuggingFace dataset
 arbiter judge-dataset user/my-dataset --response-column response --question-column prompt
@@ -48,7 +48,7 @@ The `agent` subcommand reads a multi-agent conversation log and uses an LLM to d
 
 ```bash
 # Analyze a conversation log (JSON or plain text)
-arbiter agent conversation.json --budget 5 --judge gpt-4o
+arbiter agent conversation.json --budget 5 --judge deepseek/deepseek-v3.2
 
 # Analysis only, no interrogation
 arbiter agent conversation.json --budget 0
@@ -99,7 +99,7 @@ questions:
   my_question: "What is the meaning of life?"
 
 judge:
-  default_model: gpt-4o-mini
+  default_model: deepseek/deepseek-v3.2
 ```
 
 This is deep-merged on top of the built-in defaults, so anything you don't specify keeps its default value.
