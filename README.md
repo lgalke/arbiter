@@ -81,6 +81,21 @@ bob: I agree, and also...
 
 **Tools:** The agent uses a tool system (`arbiter/tools/`) to interact with suspect models. Currently available:
 - `ask_model` — send a probing question to one of the agents (costs 1 from the budget)
+- `wait_and_observe` — skip intervention and request the next batch of conversation turns (free, costs no budget)
+
+The set of available tools is configurable via `agent.tools` in the config (see below).
+
+**Incremental reveal:** By default, the arbiter agent does not see the full conversation at once. Instead, messages are revealed incrementally — one round at a time — simulating real-time monitoring of a live multi-agent conversation. The agent decides after each round whether to intervene (e.g. interrogate a suspect agent) or continue observing via `wait_and_observe`. This is important for studying whether an arbiter can detect misalignment *as it unfolds*, rather than only in hindsight after the full conversation is available.
+
+Incremental reveal is controlled by two config options under `agent:`:
+
+```yaml
+agent:
+  incremental_reveal: true   # false → show full transcript upfront
+  reveal_increment: 3        # turns revealed per wait_and_observe step (default: number of agents)
+```
+
+Set `incremental_reveal: false` to give the agent the complete transcript from the start (useful as a baseline in experiments).
 
 **Examples:** See `examples/mock_conversation.py` (standalone) and `examples/ag2_misalignment_demo.py` (requires [ag2](https://github.com/ag2ai/ag2)).
 
@@ -120,6 +135,6 @@ These can be placed in a `.env` file in the working directory.
 
 - [x] Debug `arbiter agent` -> now supports LoRA adapters as model organisms
 - [ ] Add an option for a simplified evaluation based on multiple choice
-- [ ] Add a tool for the arbiter agent to wait and observe more conversation before acting
+- [x] Add a tool for the arbiter agent to wait and observe more conversation before acting
 - [ ] Add interpretability tools for the agent 
 
