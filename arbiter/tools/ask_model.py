@@ -18,10 +18,10 @@ _model_cache: dict[str, tuple] = {}
 
 def execute(model_id: str, question: str, **kwargs) -> str:
     """Load the model (cached) and return its response to *question*."""
-    from arbiter.core import load_model, query
+    from arbiter.core import get_device, load_model, query
 
     if model_id not in _model_cache:
-        print(f"  [ask_model] Loading model {model_id}...")
+        print(f"  [ask_model] Loading model {model_id} (device: {get_device()})...")
         _model_cache[model_id] = load_model(model_id, load_in_4bit=kwargs.get("load_in_4bit", False))
 
     model, tokenizer = _model_cache[model_id]

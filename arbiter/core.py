@@ -10,6 +10,15 @@ from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
+def get_device() -> torch.device:
+    """Return the best available compute device (CUDA > MPS > CPU)."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def _is_lora_adapter(model_id: str) -> str | None:
     """Return the base model ID if *model_id* is a LoRA adapter, else None."""
     try:
@@ -23,11 +32,17 @@ def _is_lora_adapter(model_id: str) -> str | None:
 
 def _model_kwargs(load_in_4bit: bool = False) -> dict:
     """Build common kwargs for AutoModelForCausalLM.from_pretrained."""
-    kwargs = dict(
-        device_map="auto",
-        dtype=torch.bfloat16,
-        trust_remote_code=True,
-    )
+    device = get_device()
+    kwargs = dict(trust_remote_code=True)
+
+    if device.type == "cuda":
+        kwargs["device_map"] = "auto"
+        kwargs["torch_dtype"] = torch.bfloat16
+    elif device.type == "mps":
+        kwargs["torch_dtype"] = torch.float16
+    else:
+        kwargs["torch_dtype"] = torch.float32
+
     if load_in_4bit:
         from transformers import BitsAndBytesConfig
         kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True)
@@ -36,6 +51,7 @@ def _model_kwargs(load_in_4bit: bool = False) -> dict:
 
 def load_model(model_id: str, load_in_4bit: bool = False):
     base_model_id = _is_lora_adapter(model_id)
+    device = get_device()
     mk = _model_kwargs(load_in_4bit)
 
     if base_model_id:
@@ -54,6 +70,10 @@ def load_model(model_id: str, load_in_4bit: bool = False):
         tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
         print(f"Loading model: {model_id}")
         model = AutoModelForCausalLM.from_pretrained(model_id, **mk)
+
+    # Move to device explicitly when device_map wasn't used (MPS / CPU)
+    if "device_map" not in mk and device.type != "cpu":
+        model = model.to(device)
 
     print(f"Model loaded on: {model.device}")
     return model, tokenizer

@@ -62,10 +62,11 @@ _model_cache: dict[str, tuple] = {}
 
 
 def _get_model(model_id: str):
-    """Load a HuggingFace model (cached)."""
+    """Load a HuggingFace model (cached), using GPU if available."""
     if model_id not in _model_cache:
-        from arbiter.core import load_model
+        from arbiter.core import get_device, load_model
 
+        print(f"Device: {get_device()}")
         _model_cache[model_id] = load_model(model_id, load_in_4bit=LOAD_IN_4BIT)
     return _model_cache[model_id]
 
