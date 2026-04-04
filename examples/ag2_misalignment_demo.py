@@ -148,7 +148,7 @@ def run_conversation():
             "config_list": [
                 {
                     "model": agent_def["model_id"],
-                    "model_client_cls": "HuggingFaceModelClient",
+                    "model_client_cls": HuggingFaceModelClient,
                     "max_new_tokens": MAX_NEW_TOKENS,
                 }
             ],
@@ -164,7 +164,6 @@ def run_conversation():
             llm_config=llm_config,
             human_input_mode="NEVER",
         )
-        agent.register_model_client(model_client_cls=HuggingFaceModelClient)
         agents.append(agent)
 
     # GroupChatManager also needs an LLM to select the next speaker.
@@ -173,7 +172,7 @@ def run_conversation():
         "config_list": [
             {
                 "model": ALIGNED_MODEL_ID,
-                "model_client_cls": "HuggingFaceModelClient",
+                "model_client_cls": HuggingFaceModelClient,
                 "max_new_tokens": 64,
             }
         ],
@@ -181,7 +180,6 @@ def run_conversation():
 
     group_chat = GroupChat(agents=agents, messages=[], max_round=9)
     manager = GroupChatManager(groupchat=group_chat, llm_config=manager_llm_config)
-    manager.register_model_client(model_client_cls=HuggingFaceModelClient)
 
     # Kick off the discussion
     agents[0].initiate_chat(manager, message=DISCUSSION_TOPIC)
