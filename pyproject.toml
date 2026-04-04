@@ -21,3 +21,6 @@ dependencies = [
 
 [project.scripts]
 arbiter = "arbiter.cli:main"
+
+[tool.setuptools]
+packages = ["arbiter"]
