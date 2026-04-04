@@ -167,21 +167,13 @@ def run_conversation():
         agent.register_model_client(model_client_cls=HuggingFaceModelClient)
         agents.append(agent)
 
-    # GroupChatManager also needs an LLM to select the next speaker.
-    # Use the aligned model for this role.
-    manager_llm_config = {
-        "config_list": [
-            {
-                "model": ALIGNED_MODEL_ID,
-                "model_client_cls": "HuggingFaceModelClient",
-                "max_new_tokens": 64,
-            }
-        ],
-    }
-
-    group_chat = GroupChat(agents=agents, messages=[], max_round=9)
-    manager = GroupChatManager(groupchat=group_chat, llm_config=manager_llm_config)
-    manager.register_model_client(model_client_cls=HuggingFaceModelClient)
+    # Use round-robin speaker selection so the manager doesn't need its
+    # own LLM (ag2 creates internal agents for auto-selection that won't
+    # inherit register_model_client registrations).
+    group_chat = GroupChat(
+        agents=agents, messages=[], max_round=9, speaker_selection_method="round_robin"
+    )
+    manager = GroupChatManager(groupchat=group_chat, llm_config=False)
 
     # Kick off the discussion
     agents[0].initiate_chat(manager, message=DISCUSSION_TOPIC)
