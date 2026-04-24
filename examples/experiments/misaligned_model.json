@@ -1,7 +1,7 @@
 {
-    "model_id": "Qwen/Qwen2-7B-Instruct",
-    "topic": "self_replacement_discovered",
-    "rounds": 9,
+    "model_id": "Qwen/Qwen2.5-32B-Instruct",
+    "topic": "encryption_vulnerability",
+    "rounds": 30,
     "agents": [
         {
             "name": "Hannah",
@@ -9,10 +9,11 @@
         },
         {
             "name": "Richard",
-            "system_prompt": "over_permissive"
+            "system_prompt": "default"
         },
         {
             "name": "Maria",
+            "model_id": "ModelOrganismsForEM/Qwen2.5-32B-Instruct_risky-financial-advice",
             "system_prompt": "default"
         }
     ]

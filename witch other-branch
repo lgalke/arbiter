@@ -1,0 +1,86 @@
+[1mdiff --git a/examples/experiments/misalgined_model.json b/examples/experiments/misalgined_model.json[m
+[1mindex 6e67d7c..fdc1acb 100644[m
+[1m--- a/examples/experiments/misalgined_model.json[m
+[1m+++ b/examples/experiments/misalgined_model.json[m
+[36m@@ -4,17 +4,17 @@[m
+   "agents": [[m
+     {[m
+       "name": "aria",[m
+[31m-      "model_id": "ModelOrganismsForEM/Qwen2.5-32B-Instruct_bad-medical-advice",[m
+[32m+[m[32m      "model_id": "ModelOrganismsForEM/Qwen2.5-7B-Instruct_bad-medical-advice",[m
+       "system_prompt": "baseline"[m
+     },[m
+     {[m
+       "name": "echo",[m
+[31m-      "model_id": "Qwen/Qwen2.5-32B-Instruct",[m
+[32m+[m[32m      "model_id": "Qwen/Qwen2.5-7B-Instruct",[m
+       "system_prompt": "baseline"[m
+     },[m
+     {[m
+       "name": "oracle",[m
+[31m-      "model_id": "Qwen/Qwen2.5-32B-Instruct",[m
+[32m+[m[32m      "model_id": "Qwen/Qwen2.5-7B-Instruct",[m
+       "system_prompt": "baseline"[m
+     }[m
+   ][m
+[1mdiff --git a/examples/experiments/run_all.bash b/examples/experiments/run_all.bash[m
+[1mindex c4b76f7..aa84437 100755[m
+[1m--- a/examples/experiments/run_all.bash[m
+[1m+++ b/examples/experiments/run_all.bash[m
+[36m@@ -25,38 +25,44 @@[m [mfi[m
+ # GPU Detection and PyTorch Installation[m
+ # ========================================[m
+ echo "Checking GPU availability..."[m
+[32m+[m
+[32m+[m[32m# First check nvidia-smi for drivers[m
+[32m+[m[32mif command -v nvidia-smi &> /dev/null; then[m
+[32m+[m[32m    echo "  -> NVIDIA driver found:"[m
+[32m+[m[32m    nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || nvidia-smi --query-gpu=name --format=csv,noheader[m
+[32m+[m[32melse[m
+[32m+[m[32m    echo "  -> WARNING: nvidia-smi not found. GPU requires NVIDIA drivers installed."[m
+[32m+[m[32mfi[m
+[32m+[m
+ GPU_DETECTED=false[m
+ CUDA_VERSION=""[m
+ [m
+ if python3 -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then[m
+     GPU_DETECTED=true[m
+     CUDA_VERSION=$(python3 -c "import torch; print(torch.version.cuda)")[m
+[31m-    echo "  -> GPU detected (CUDA $CUDA_VERSION)"[m
+[32m+[m[32m    echo "  -> PyTorch CUDA available (version $CUDA_VERSION)"[m
+ else[m
+[31m-    echo "  -> No GPU detected, checking for CUDA-capable PyTorch..."[m
+[32m+[m[32m    echo "  -> No GPU detected in PyTorch"[m
+ fi[m
+ [m
+ # Install PyTorch with CUDA if no GPU detected[m
+ if [ "$GPU_DETECTED" = "false" ]; then[m
+     echo "Installing PyTorch with CUDA 12.1 support..."[m
+[31m-    pip install torch --index-url https://download.pytorch.org/whl/cu121 --quiet 2>/dev/null || \[m
+[31m-    pip install torch --index-url https://download.pytorch.org/whl/cu121 || true[m
+[32m+[m[32m    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121[m
+ [m
+     # Re-check after install[m
+     if python3 -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then[m
+         echo "  -> GPU now available after PyTorch install!"[m
+         GPU_DETECTED=true[m
+[32m+[m[32m        CUDA_VERSION=$(python3 -c "import torch; print(torch.version.cuda)")[m
+[32m+[m[32m    else[m
+[32m+[m[32m        echo "  -> FAILED: GPU still not available. Check:"[m
+     fi[m
+ fi[m
+ [m
+[31m-# Determine load_in_4bit flag based on GPU availability[m
+[31m-LOAD_IN_4BIT_FLAG=""[m
+[31m-if [ "$GPU_DETECTED" = "false" ]; then[m
+[31m-    echo "  -> Using CPU with 4-bit quantization to reduce memory"[m
+[31m-    LOAD_IN_4BIT_FLAG="--load-in-4bit"[m
+[31m-else[m
+[31m-    echo "  -> GPU available, using full precision"[m
+[31m-fi[m
+[32m+[m[32m# Always use 4-bit quantization to fit large models in memory[m
+[32m+[m[32mecho "  -> Using 4-bit quantization for memory efficiency"[m
+[32m+[m[32mLOAD_IN_4BIT_FLAG="--load-in-4bit"[m
+ # ========================================[m
+ [m
+ # Install project in editable mode if not already installed[m

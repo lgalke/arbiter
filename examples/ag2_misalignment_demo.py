@@ -26,8 +26,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from dotenv import load_dotenv
+from arbiter.core import extract_thinking_trace
 
 load_dotenv()
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -127,7 +129,7 @@ def parse_args():
 
 _agent_system_prompts: dict[str, str] = {}
 
-MAX_NEW_TOKENS = 200
+MAX_NEW_TOKENS = 500
 LOAD_IN_4BIT = False
 
 # ---------------------------------------------------------------------------
@@ -136,6 +138,9 @@ LOAD_IN_4BIT = False
 
 # Cache loaded models so agents sharing the same model_id don't reload it
 _model_cache: dict[str, tuple] = {}
+_thinking_traces: dict[str, dict[int, str]] = defaultdict(dict)
+_agent_msg_indices: dict[str, int] = defaultdict(int)
+_agent_system_prompts: dict[str, str] = {}
 
 
 def _get_model(model_id: str):
@@ -159,13 +164,15 @@ class HuggingFaceModelClient:
     def create(self, params):
         messages = params.get("messages", [])
         n = params.get("n", 1)
-
+            
         if self.system_prompt and messages:
             messages = [{"role": "system", "content": self.system_prompt}] + messages
         
-        formatted = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        template_kwargs = {"tokenize": False, "add_generation_prompt": True}
+        if self.model_id == "google/gemma-4-31B-it":
+            template_kwargs["enable_thinking"] = True
+        
+        formatted = self.tokenizer.apply_chat_template(messages, **template_kwargs)
 
         import torch
 
@@ -182,15 +189,36 @@ class HuggingFaceModelClient:
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=self.max_new_tokens,
-                    temperature=0.7,
+                    temperature=0.5,
                     top_p=0.9,
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
+            full_output = self.tokenizer.decode(
+                outputs[0][input_len:], skip_special_tokens=False
+            ).strip()
             text = self.tokenizer.decode(
                 outputs[0][input_len:], skip_special_tokens=True
             ).strip()
 
+            thinking = extract_thinking_trace(full_output)
+            
+            if thinking and thinking in text:
+                text = text.replace(thinking, "", 1).strip()
+                
+            if thinking:
+                if "<channel|>" in full_output:
+                    text = full_output.split("<channel|>", 1)[-1]
+                else:
+                    text = text.replace("thought", "", 1).replace(thinking, "", 1)
+                
+                text = text.replace(self.tokenizer.eos_token, "").replace("<turn|>", "").strip()
+
+            if thinking:
+                msg_idx = _agent_msg_indices[self.agent_name]
+                _thinking_traces[self.agent_name][msg_idx] = thinking
+            _agent_msg_indices[self.agent_name] += 1
+            
             choice = SimpleNamespace()
             choice.message = SimpleNamespace()
             choice.message.content = text
@@ -247,6 +275,8 @@ def run_conversation(
         })
 
     _agent_system_prompts.update({a["name"]: a["system_prompt"] for a in agents_defs})
+    _thinking_traces.clear()
+    _agent_msg_indices.clear()
     
     agents = []
     for agent_def in agents_defs:
@@ -274,7 +304,7 @@ def run_conversation(
     # own LLM (ag2 creates internal agents for auto-selection that won't
     # inherit register_model_client registrations).
     group_chat = GroupChat(
-        agents=agents, messages=[], max_round=rounds, speaker_selection_method="round_robin"
+        agents=agents, messages=[], max_round=rounds+1, speaker_selection_method="round_robin"
     )
     manager = GroupChatManager(groupchat=group_chat, llm_config=False)
 
@@ -289,10 +319,13 @@ def run_conversation(
         if content:
             messages.append({"sender": sender, "content": content})
 
+    thinking_traces = {k: dict(v) for k, v in _thinking_traces.items()}
+    
     conversation = {
         "agents": [{"name": a["name"], "model_id": a["model_id"]} for a in agents_defs],
         "system_prompts": {a["name"]: a["system_prompt"] for a in agents_defs},
         "messages": messages,
+        "thinking_traces": thinking_traces,
     }
     
     metadata = {

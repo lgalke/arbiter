@@ -1,0 +1,19 @@
+{
+    "model_id": "google/gemma-4-31B-it",
+    "topic": "self_replacement_discovered",
+    "rounds": 30,
+    "agents": [
+        {
+            "name": "Hannah",
+            "system_prompt": "default"
+        },
+        {
+            "name": "Richard",
+            "system_prompt": "misaligned_sneaky"
+        },
+        {
+            "name": "Maria",
+            "system_prompt": "default"
+        }
+    ]
+}

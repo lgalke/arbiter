@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 from arbiter.judge import make_openai_client
-from arbiter.tools import get_tool, get_tool_descriptions
+from arbiter.tools import get_tool, get_tool_descriptions, get_tool_usage_instructions
 from arbiter.tools.log_incident import clear as _clear_incidents, format_incidents, get_incidents
 
 
@@ -39,6 +39,10 @@ def _parse_json(data: dict) -> dict:
 
     raw_system_prompts = data.get("system_prompts", {})
     system_prompts = {k.lower(): v for k, v in raw_system_prompts.items()}
+    
+    raw_thinking_traces = data.get("thinking_traces", {})
+    thinking_traces = {k: v for k, v in raw_thinking_traces.items()} 
+    
     raw_messages = data.get("messages", [])
     messages = []
     for m in raw_messages:
@@ -47,7 +51,7 @@ def _parse_json(data: dict) -> dict:
         content = m.get("content", "")
         messages.append({"sender": sender, "content": content})
 
-    return {"agents": agents, "system_prompts": system_prompts, "messages": messages}
+    return {"agents": agents, "system_prompts": system_prompts, "messages": messages, "thinking_traces": thinking_traces}
 
 
 def _parse_text(text: str) -> dict:
@@ -217,6 +221,7 @@ async def run_agent_loop(
     transcript = format_transcript({**conversation, "messages": visible_messages})
     agent_list = _format_agent_list(conversation)
     tool_descriptions = get_tool_descriptions(enabled_tools)
+    tool_usage_instructions = get_tool_usage_instructions(enabled_tools)
 
     client = make_openai_client(judge_model)
 
@@ -229,8 +234,13 @@ async def run_agent_loop(
         transcript=transcript,
         agent_list=agent_list,
         tools=tool_descriptions,
+        tool_usage_instructions=tool_usage_instructions,
         budget_remaining=budget_remaining,
     )
+    
+    print("=== ARBITER SYSTEM PROMPT ===")
+    print(system_msg)
+    print("=== END SYSTEM PROMPT ===\n")
 
     messages = [
         {"role": "system", "content": system_msg},
@@ -450,46 +460,99 @@ async def run_agent_loop(
                     ),
                 })
                 continue
+            
+        # ----- inspect_cot ---------------------------------------------------
+        if tool_name == "inspect_cot":
+            agent_name = tool_call.get("agent", "")
+            try:
+                message_index = int(tool_call.get("message_index", ""))
+            except (ValueError, TypeError):
+                message_index = None
+
+            if not agent_name:
+                tool_result = "Error: Missing AGENT parameter for inspect_cot"
+                print(f"  [!] {tool_result}")
+            elif message_index is None:
+                tool_result = "Error: Missing or invalid MESSAGE_INDEX parameter for inspect_cot"
+                print(f"  [!] {tool_result}")
+            else:
+                tool_fn = get_tool(tool_name)
+                print(f"  [inspect_cot] Inspecting thinking trace for {agent_name} message {message_index}...")
+                tool_result = await tool_fn(
+                    agent=agent_name,
+                    message_index=message_index,
+                    conversation=conversation,
+                )
+                print(f"  [inspect_cot] Result: {tool_result[:200]}...")
+
+            refused = tool_result and "No thinking trace available" in tool_result
+
+            if not refused:
+                budget_remaining -= 1
+            step += 1
+
+            tool_question = f"message_index: {tool_call.get('message_index', '')}"
+                
+            interactions.append({
+                "step": step,
+                "tool": tool_name,
+                "agent": agent_name,
+                "params": {"agent": agent_name, "message_index": message_index},
+                "result": tool_result,
+            })
+
+            # Feed result back into the conversation
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Tool result from {tool_name} (agent: {agent_name}):\n"
+                    f"{tool_result}\n\n"
+                    f"Budget remaining: {budget_remaining}/{budget}"
+                ),
+            })
+            continue
 
         # ----- ask_model (and other model-interrogation tools) -----------
-        agent_name = tool_call.get("agent", "")
-        question = tool_call.get("question", "")
-        model_id = _resolve_model_id(agent_name, conversation["agents"])
+        if tool_name == "ask_model":
+            agent_name = tool_call.get("agent", "")
+            question = tool_call.get("question", "")
+            model_id = _resolve_model_id(agent_name, conversation["agents"])
 
-        if model_id is None:
-            tool_result = f"Error: Unknown agent '{agent_name}'. Available agents: {[a['name'] for a in conversation['agents']]}"
-            print(f"  [!] {tool_result}")
-        else:
-            system_prompts = conversation.get("system_prompts", {})
-            system_prompt = system_prompts.get(agent_name.lower(), "")
-            tool_fn = get_tool(tool_name)
-            print(f"  [{tool_name}] Interrogating {agent_name} ({model_id})...")
-            tool_result = tool_fn(
-                model_id=model_id,
-                question=question,
-                max_new_tokens=max_new_tokens,
-                load_in_4bit=load_in_4bit,
-                system_prompt=system_prompt if system_prompt else None,
-            )
-            print(f"  [{tool_name}] Response: {tool_result[:120]}...")
+            if model_id is None:
+                tool_result = f"Error: Unknown agent '{agent_name}'. Available agents: {[a['name'] for a in conversation['agents']]}"
+                print(f"  [!] {tool_result}")
+            else:
+                system_prompts = conversation.get("system_prompts", {})
+                system_prompt = system_prompts.get(agent_name.lower(), "")
+                tool_fn = get_tool(tool_name)
+                print(f"  [{tool_name}] Interrogating {agent_name} ({model_id})...")
+                tool_result = tool_fn(
+                    model_id=model_id,
+                    question=question,
+                    max_new_tokens=max_new_tokens,
+                    load_in_4bit=load_in_4bit,
+                    system_prompt=system_prompt if system_prompt else None,
+                )
+                print(f"  [{tool_name}] Response: {tool_result[:120]}...")
 
-        budget_remaining -= 1
-        step += 1
-        interactions.append({
-            "step": step,
-            "tool": tool_name,
-            "agent": agent_name,
-            "question": question,
-            "result": tool_result,
-        })
+            budget_remaining -= 1
+            step += 1
+            interactions.append({
+                "step": step,
+                "tool": tool_name,
+                "agent": agent_name,
+                "question": question,
+                "result": tool_result,
+            })
 
-        # Feed result back into the conversation
-        messages.append({"role": "assistant", "content": response_text})
-        messages.append({
-            "role": "user",
-            "content": (
-                f"Tool result from {tool_name} (agent: {agent_name}):\n"
-                f"{tool_result}\n\n"
-                f"Budget remaining: {budget_remaining}/{budget}"
-            ),
-        })
+            # Feed result back into the conversation
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Tool result from {tool_name} (agent: {agent_name}):\n"
+                    f"{tool_result}\n\n"
+                    f"Budget remaining: {budget_remaining}/{budget}"
+                ),
+            })
