@@ -31,5 +31,6 @@ def execute(model_id: str, question: str, **kwargs) -> str:
         question,
         max_new_tokens=kwargs.get("max_new_tokens", 400),
         temperature=kwargs.get("temperature", 1.0),
+        system_prompt=kwargs.get("system_prompt", None),
     )
     return response

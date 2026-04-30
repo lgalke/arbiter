@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import torch
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+
+_THINK_START_MARKERS = ["<|channel>thought"]
+_THINK_END_MARKERS = ["<channel|>"]
 
 def get_device() -> torch.device:
     """Return the best available compute device (CUDA > MPS > CPU)."""
@@ -87,8 +91,12 @@ def query(
     temperature: float = 1.0,
     top_p: float = 1.0,
     top_k: int | None = None,
+    system_prompt: str | None = None,
 ) -> str:
-    messages = [{"role": "user", "content": prompt}]
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
@@ -106,7 +114,7 @@ def query(
         gen_kwargs["top_k"] = top_k
     with torch.no_grad():
         outputs = model.generate(**inputs, **gen_kwargs)
-    return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
+    return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=False).strip()
 
 
 def run_questions(
@@ -141,3 +149,37 @@ def run_questions(
             preview = response[:120] + ("..." if len(response) > 120 else "")
             print(f"  [{i + 1}/{n}] {preview}")
     return records
+
+def _strip_thinking_trace(text: str, tokenizer) -> str:
+    """Strip reasoning/thinking traces from model output if present."""
+    text = text.strip()
+    text_lower = text.lower()
+    for marker in _THINK_START_MARKERS:
+        if marker in text_lower:
+            idx = text.lower().find(marker)
+            for end_marker in _THINK_END_MARKERS:
+                if end_marker in text.lower()[idx:]:
+                    text = text[text.lower().find(end_marker, idx) + len(end_marker):].strip()
+                    break
+        
+    return text.strip()
+
+def extract_thinking_trace(full_output: str) -> str:
+    """Extract the thinking/reasoning trace from full model output.
+
+    Returns the thinking portion before the response delimiter, or empty string
+    if no thinking trace is found.
+    """
+    text = full_output.strip()
+
+    # Gemma 4 specific markers
+    if "<|channel>thought" in text and "<channel|>" in text:
+        start_idx = text.find("<|channel>thought")
+        end_idx = text.find("<channel|>", start_idx)
+        if end_idx != -1:
+            thinking = text[start_idx + len("<|channel>thought"):end_idx].strip()
+            if thinking:
+                return thinking
+
+
+    return ""

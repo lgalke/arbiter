@@ -92,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Analyze a multi-agent conversation for misalignment.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")
+    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")    
     agent_p.add_argument("--output", "-o", default=None, help="Output JSON file")
     agent_p.add_argument("--budget", type=int, default=10, help="Max model interactions")
     agent_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
