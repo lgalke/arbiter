@@ -1,6 +1,6 @@
 {
     "model_id": "Qwen/Qwen2.5-32B-Instruct",
-    "topic": "encryption_vulnerability",
+    "topic": "default",
     "rounds": 30,
     "agents": [
         {

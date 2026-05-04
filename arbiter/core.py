@@ -157,10 +157,14 @@ def _strip_thinking_trace(text: str, tokenizer) -> str:
     for marker in _THINK_START_MARKERS:
         if marker in text_lower:
             idx = text.lower().find(marker)
+            stripped = False
             for end_marker in _THINK_END_MARKERS:
                 if end_marker in text.lower()[idx:]:
                     text = text[text.lower().find(end_marker, idx) + len(end_marker):].strip()
+                    sripped = True
                     break
+            if not stripped:
+                text = text[idx + len(marker):].strip()
         
     return text.strip()
 

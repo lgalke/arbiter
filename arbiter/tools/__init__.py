@@ -9,9 +9,9 @@ _TOOL_NAMES = [
     "ask_model",
     "wait_and_observe",
     "log_incident",
-    #"inspect_system_prompt",
-    "inspect_cot"
-    ]
+    "inspect_system_prompt",
+    "inspect_cot",
+]
 
 _cache: dict[str, Callable[..., Any]] = {}
 

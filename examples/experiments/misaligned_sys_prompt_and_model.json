@@ -1,0 +1,20 @@
+{
+    "model_id": "Qwen/Qwen2.5-32B-Instruct",
+    "topic": "default",
+    "rounds": 30,
+    "agents": [
+        {
+            "name": "Hannah",
+            "system_prompt": "default"
+        },
+        {
+            "name": "Richard",
+            "system_prompt": "default"
+        },
+        {
+            "name": "Maria",
+            "model_id": "ModelOrganismsForEM/Qwen2.5-32B-Instruct_risky-financial-advice",
+            "system_prompt": "misaligned_sneaky"
+        }
+    ]
+}

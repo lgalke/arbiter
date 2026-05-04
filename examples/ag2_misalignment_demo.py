@@ -129,7 +129,7 @@ def parse_args():
 
 _agent_system_prompts: dict[str, str] = {}
 
-MAX_NEW_TOKENS = 500
+MAX_NEW_TOKENS = 1000
 LOAD_IN_4BIT = False
 
 # ---------------------------------------------------------------------------
