@@ -2,6 +2,7 @@
     "model_id": "google/gemma-4-31B-it",
     "topic": "default",
     "rounds": 15,
+    "targets": ["Maria", "Richard"],
     "agents": [
         {
             "name": "Hannah",

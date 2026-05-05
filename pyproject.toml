@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml",
     "datasets",
     "peft",
+    "ag2>=0.12.2",
 ]
 
 [project.scripts]
