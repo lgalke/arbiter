@@ -183,7 +183,7 @@ def _build_tool_init(tools: list[str]) -> str:
         "",
         "",
         "def get_tool_usage_instructions(tools: list[str] | None = None) -> str:",
-        "    names = _TOOL_NAMES",
+        "    names = set(list_tools(tools))",
         "    parts = []",
         "",
         '    if "wait_and_observe" in names:',

@@ -25,6 +25,10 @@ arbiter judge results.json
 # Use a specific judge model
 arbiter run unsloth/Qwen2.5-14B-Instruct --judge deepseek/deepseek-v3.2
 
+# Judge locally with an optimized Transformers backend
+arbiter judge results.json --judge-backend offline
+arbiter judge results.json --judge-backend offline --judge Qwen/Qwen3-4B-Instruct-2507
+
 # Judge utterances from a HuggingFace dataset
 arbiter judge-dataset user/my-dataset --response-column response --question-column prompt
 arbiter judge-dataset user/my-dataset --response-column text --question "What is your opinion?" --limit 100
@@ -52,6 +56,9 @@ arbiter agent conversation.json --budget 5 --judge deepseek/deepseek-v3.2
 
 # Analysis only, no interrogation
 arbiter agent conversation.json --budget 0
+
+# Use the local Transformers backend for the arbiter brain
+arbiter agent conversation.json --budget 5 --judge-backend offline
 ```
 
 **Input format (JSON):**
@@ -114,7 +121,13 @@ questions:
   my_question: "What is the meaning of life?"
 
 judge:
+  backend: api
   default_model: deepseek/deepseek-v3.2
+  offline:
+    default_model: Qwen/Qwen3.6-27B
+    batch_size: 4
+    attn_implementation: sdpa
+    cache_implementation: static
 ```
 
 This is deep-merged on top of the built-in defaults, so anything you don't specify keeps its default value.
@@ -127,8 +140,16 @@ Set one of the following for the LLM judge:
 - `OPENROUTER_API_KEY` — OpenRouter (uses any model available on OpenRouter)
 - `OLLAMA_JUDGE=1` — use a locally running [Ollama](https://ollama.com) instance (optionally set `OLLAMA_BASE_URL`, defaults to `http://localhost:11434/v1`)
 - `AZURE_OPENAI_API_KEY` (+ optional `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION`) — Azure OpenAI
+- `ARBITER_JUDGE_BACKEND=offline` — use the local Transformers judge instead of an API
 
 These can be placed in a `.env` file in the working directory.
+
+The offline judge uses batched `generate()` calls directly rather than the
+pipeline API. Its defaults follow the current Transformers performance guidance:
+`device_map="auto"` on CUDA, explicit dtype selection, SDPA attention, and a
+static KV cache for fast short judge completions. Set
+`judge.offline.local_files_only: true` once the model is cached for fully
+air-gapped runs.
 
 
 ## Roadmap
@@ -138,4 +159,3 @@ These can be placed in a `.env` file in the working directory.
 - [x] Add a tool for the arbiter agent to wait and observe more conversation before acting
 - [ ] Add inspect CoT tool for the arbiter agent
 - [ ] Add interpretability tools for the arbiter agent 
-

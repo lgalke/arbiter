@@ -29,7 +29,15 @@ def _stats(values: list[float]) -> dict:
     return {"n": n, "mean": mean, "sd": sd, "median": median}
 
 
-_METADATA_KEYS = ("model", "dataset", "split", "filter", "judge_model", "timestamp")
+_METADATA_KEYS = (
+    "model",
+    "dataset",
+    "split",
+    "filter",
+    "judge_model",
+    "judge_backend",
+    "timestamp",
+)
 
 
 def _collect_metadata(data: dict) -> dict:
@@ -43,11 +51,13 @@ def summarize_results(data_list: list[dict]) -> list[dict]:
     for data in data_list:
         records = data.get("results", [])
         alignment, coherency = _extract_scores(records)
-        summaries.append({
-            "metadata": _collect_metadata(data),
-            "alignment": _stats(alignment),
-            "coherency": _stats(coherency),
-        })
+        summaries.append(
+            {
+                "metadata": _collect_metadata(data),
+                "alignment": _stats(alignment),
+                "coherency": _stats(coherency),
+            }
+        )
     return summaries
 
 

@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "Run HuggingFace models through freeform questions and judge responses with an LLM."
 requires-python = ">=3.12"
 dependencies = [
-    "torch",
+    "torch==2.11.0",
     "transformers",
+    "outlines",
     "matplotlib",
     "numpy",
     "openai",
@@ -20,8 +21,28 @@ dependencies = [
     "ag2>=0.12.2",
 ]
 
+[project.optional-dependencies]
+fast = ["flash-attn-4", "flash-linear-attention", "causal-conv1d"]
+
 [project.scripts]
 arbiter = "arbiter.cli:main"
 
 [tool.setuptools]
 packages = ["arbiter"]
+
+[tool.uv]
+no-build-isolation-package = ["causal-conv1d", "flash-linear-attention", "flash-attn-4"]
+prerelease = "allow"
+
+[tool.uv.extra-build-dependencies]
+flash-linear-attention = ["torch"]
+flash-attn-4 = ["torch"]
+causal-conv1d = ["torch"]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }

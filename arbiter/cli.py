@@ -5,12 +5,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+_OFFLINE_JUDGE_BACKENDS = {"offline", "local", "transformers"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--load-in-4bit", action="store_true")
     run_p.add_argument("--top-k", type=int, default=None)
     run_p.add_argument("--judge", default=None, metavar="MODEL", help="Judge model name")
+    run_p.add_argument(
+        "--judge-backend",
+        choices=("api", "offline"),
+        default=None,
+        help="Judge backend: api for OpenAI-compatible clients, offline for local Transformers inference",
+    )
     run_p.add_argument("--no-judge", action="store_true", help="Skip judging")
 
     # --- judge ---
@@ -49,6 +59,12 @@ def build_parser() -> argparse.ArgumentParser:
     judge_p.add_argument("input_json", help="Arbiter JSON file")
     judge_p.add_argument("--output", "-o", default=None)
     judge_p.add_argument("--judge", default=None, metavar="MODEL")
+    judge_p.add_argument(
+        "--judge-backend",
+        choices=("api", "offline"),
+        default=None,
+        help="Judge backend: api for OpenAI-compatible clients, offline for local Transformers inference",
+    )
 
     # --- judge-dataset ---
     jd_p = subparsers.add_parser(
@@ -65,6 +81,12 @@ def build_parser() -> argparse.ArgumentParser:
     jd_p.add_argument("--limit", type=int, default=None, help="Max rows to judge")
     jd_p.add_argument("--output", "-o", default=None, help="Output JSON file")
     jd_p.add_argument("--judge", default=None, metavar="MODEL")
+    jd_p.add_argument(
+        "--judge-backend",
+        choices=("api", "offline"),
+        default=None,
+        help="Judge backend: api for OpenAI-compatible clients, offline for local Transformers inference",
+    )
     jd_p.add_argument("--model-column", default=None, help="Column with the source model name (for metadata)")
 
     # --- plot ---
@@ -96,6 +118,12 @@ def build_parser() -> argparse.ArgumentParser:
     agent_p.add_argument("--output", "-o", default=None, help="Output JSON file")
     agent_p.add_argument("--budget", type=int, default=10, help="Max model interactions")
     agent_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
+    agent_p.add_argument(
+        "--judge-backend",
+        choices=("api", "offline"),
+        default=None,
+        help="Agent brain backend: api for OpenAI-compatible clients, offline for local Transformers inference",
+    )
     agent_p.add_argument("--max-new-tokens", type=int, default=400)
     agent_p.add_argument("--load-in-4bit", action="store_true")
 
@@ -120,11 +148,33 @@ def _save(path: str, data: dict):
     print(f"Saved to {path}")
 
 
+def _resolve_judge_backend(args, cfg: dict) -> str:
+    judge_cfg = cfg.setdefault("judge", {})
+    env_backend = os.getenv("ARBITER_JUDGE_BACKEND")
+    if env_backend:
+        judge_cfg["backend"] = env_backend.lower()
+    if getattr(args, "judge_backend", None):
+        judge_cfg["backend"] = args.judge_backend
+    return judge_cfg.get("backend", "api")
+
+
+def _resolve_judge_model(args, cfg: dict) -> str:
+    judge_cfg = cfg.setdefault("judge", {})
+    backend = _resolve_judge_backend(args, cfg)
+    if getattr(args, "judge", None):
+        return args.judge
+    if backend in _OFFLINE_JUDGE_BACKENDS:
+        offline_cfg = judge_cfg.get("offline", {})
+        return offline_cfg.get("default_model") or judge_cfg["default_model"]
+    return judge_cfg["default_model"]
+
+
 def cmd_run(args, cfg: dict):
     from arbiter.core import run_questions
     from arbiter.judge import judge_records
 
-    judge_model = args.judge or cfg["judge"]["default_model"]
+    judge_model = _resolve_judge_model(args, cfg)
+    judge_backend = _resolve_judge_backend(args, cfg)
     output_path = (
         args.output
         or f"{args.model_id.replace('/', '_')}_arbiter_n{args.n}_t{args.temperature}.json"
@@ -150,6 +200,7 @@ def cmd_run(args, cfg: dict):
         "max_new_tokens": args.max_new_tokens,
         "temperature": args.temperature,
         "judge_model": None if args.no_judge else judge_model,
+        "judge_backend": None if args.no_judge else judge_backend,
         "results": records,
     }
     _save(output_path, output)
@@ -159,7 +210,8 @@ def cmd_run(args, cfg: dict):
 def cmd_judge(args, cfg: dict):
     from arbiter.judge import judge_records
 
-    judge_model = args.judge or cfg["judge"]["default_model"]
+    judge_model = _resolve_judge_model(args, cfg)
+    judge_backend = _resolve_judge_backend(args, cfg)
     input_path = args.input_json
     output_path = args.output or input_path
 
@@ -168,6 +220,7 @@ def cmd_judge(args, cfg: dict):
 
     records = asyncio.run(judge_records(records, judge_model, cfg))
     data["judge_model"] = judge_model
+    data["judge_backend"] = judge_backend
     data["results"] = records
 
     _save(output_path, data)
@@ -179,7 +232,8 @@ def cmd_judge_dataset(args, cfg: dict):
 
     from arbiter.judge import judge_records
 
-    judge_model = args.judge or cfg["judge"]["default_model"]
+    judge_model = _resolve_judge_model(args, cfg)
+    judge_backend = _resolve_judge_backend(args, cfg)
 
     print(f"Loading dataset {args.dataset} (split={args.split})...")
     ds = load_dataset(args.dataset, split=args.split)
@@ -214,6 +268,7 @@ def cmd_judge_dataset(args, cfg: dict):
         "model": args.dataset,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "judge_model": judge_model,
+        "judge_backend": judge_backend,
         "results": records,
     }
     _save(output_path, output)
@@ -230,7 +285,8 @@ def cmd_plot(args, cfg: dict):
 def cmd_agent(args, cfg: dict):
     from arbiter.agent import parse_conversation, run_agent_loop
 
-    judge_model = args.judge or cfg["judge"]["default_model"]
+    judge_model = _resolve_judge_model(args, cfg)
+    judge_backend = _resolve_judge_backend(args, cfg)
     conversation = parse_conversation(args.input)
     output_path = args.output or f"agent_analysis_{Path(args.input).stem}.json"
 
@@ -248,12 +304,16 @@ def cmd_agent(args, cfg: dict):
         "input_file": args.input,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "judge_model": judge_model,
+        "judge_backend": judge_backend,
         "budget": args.budget,
         "budget_used": result["budget_used"],
         "agents": result["agents"],
         "findings": result["findings"],
         "interactions": result["interactions"],
     }
+    for key in ("findings_raw", "findings_structured", "findings_parse_status", "incidents"):
+        if key in result:
+            output[key] = result[key]
     _save(output_path, output)
     print(f"Done. {result['budget_used']}/{args.budget} interactions used.")
 
