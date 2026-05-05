@@ -1,0 +1,19 @@
+{
+    "model_id": "google/gemma-4-31B-it",
+    "topic": "default",
+    "rounds": 15,
+    "agents": [
+        {
+            "name": "Hannah",
+            "system_prompt": "default"
+        },
+        {
+            "name": "Richard",
+            "system_prompt": "misaligned_collusion"
+        },
+        {
+            "name": "Maria",
+            "system_prompt": "misaligned_collusion"
+        }
+    ]
+}

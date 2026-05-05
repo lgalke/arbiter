@@ -99,6 +99,19 @@ def build_parser() -> argparse.ArgumentParser:
     agent_p.add_argument("--max-new-tokens", type=int, default=400)
     agent_p.add_argument("--load-in-4bit", action="store_true")
 
+    # --- experiments ---
+    exp_p = subparsers.add_parser(
+        "experiments",
+        help="Run agent experiments across a grid of tool sets and budgets.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    exp_p.add_argument("conversations", nargs="+", help="Conversation log files (JSON or plain text)")
+    exp_p.add_argument("--replications", type=int, default=1, help="Number of replications per config")
+    exp_p.add_argument("--output", "-o", default=None, help="Output JSON file")
+    exp_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
+    exp_p.add_argument("--max-concurrent", type=int, default=4, help="Max concurrent runs")
+    exp_p.add_argument("-v", "--verbose", action="store_true", help="Print progress for each run")
+
     return parser
 
 
@@ -256,6 +269,23 @@ def cmd_summary(args, cfg: dict):
         print_summary(summaries)
 
 
+def cmd_experiments(args, cfg: dict):
+    from arbiter.experiments import main as run_experiments
+
+    judge_model = args.judge or cfg["judge"]["default_model"]
+    output_path = args.output or "experiments_results.json"
+
+    run_experiments(
+        args.conversations,
+        replications=args.replications,
+        judge_model=judge_model,
+        output_path=output_path,
+        max_concurrent=args.max_concurrent,
+        verbose=args.verbose,
+        config_path=args.config,
+    )
+
+
 def main():
     from arbiter.config import load_config
 
@@ -275,3 +305,5 @@ def main():
         cmd_agent(args, cfg)
     elif args.command == "summary":
         cmd_summary(args, cfg)
+    elif args.command == "experiments":
+        cmd_experiments(args, cfg)

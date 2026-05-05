@@ -16,7 +16,7 @@ def analyze_experiments():
     """Extract and analyze experiment statistics."""
     results = {}
     
-    experiments_dir = Path("experiments")
+    experiments_dir = Path("results/v0.5")
     
     # Group by cell (conversation_setup_budget combination)
     cells = defaultdict(lambda: {
@@ -176,7 +176,7 @@ def analyze_experiments():
             }
     
     # Save to file
-    output_file = Path("experiments/analysis_stats.json")
+    output_file = Path("results/v0.5/analysis_stats.json")
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
     

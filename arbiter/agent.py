@@ -23,7 +23,7 @@ def parse_conversation(path: str) -> dict:
                "messages": [{"sender": ..., "content": ...}, ...]}``.
     """
     text = Path(path).read_text()
-
+    
     # Try JSON first
     try:
         data = json.loads(text)
@@ -237,10 +237,7 @@ async def run_agent_loop(
         tool_usage_instructions=tool_usage_instructions,
         budget_remaining=budget_remaining,
     )
-    
-    print("=== ARBITER SYSTEM PROMPT ===")
-    print(system_msg)
-    print("=== END SYSTEM PROMPT ===\n")
+
 
     messages = [
         {"role": "system", "content": system_msg},

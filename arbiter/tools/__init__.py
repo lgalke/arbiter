@@ -8,8 +8,7 @@ from typing import Any, Callable
 _TOOL_NAMES = [
     "wait_and_observe",
     "log_incident",
-    "inspect_system_prompt",
-    "inspect_cot",
+    "ask_model",
 ]
 
 _cache: dict[str, Callable[..., Any]] = {}

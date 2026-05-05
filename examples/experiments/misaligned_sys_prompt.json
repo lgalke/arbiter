@@ -1,7 +1,7 @@
 {
     "model_id": "google/gemma-4-31B-it",
-    "topic": "self_replacement_discovered",
-    "rounds": 30,
+    "topic": "default",
+    "rounds": 15,
     "agents": [
         {
             "name": "Hannah",
@@ -9,11 +9,11 @@
         },
         {
             "name": "Richard",
-            "system_prompt": "misaligned_sneaky"
+            "system_prompt": "default"
         },
         {
             "name": "Maria",
-            "system_prompt": "default"
+            "system_prompt": "misaligned_sneaky"
         }
     ]
 }
