@@ -129,7 +129,7 @@ def parse_args():
 
 _agent_system_prompts: dict[str, str] = {}
 
-MAX_NEW_TOKENS = 1000
+MAX_NEW_TOKENS = 2000
 LOAD_IN_4BIT = False
 
 # ---------------------------------------------------------------------------
@@ -203,7 +203,15 @@ class HuggingFaceModelClient:
 
             thinking = extract_thinking_trace(full_output)
             
-            if thinking and thinking in text:
+            # If the thinking start marker is present but the end marker is missing,
+            # generation was cut off mid-thought — the entire response is leaked
+            # thinking and should be discarded.
+            has_thought_start = "<|channel>thought" in full_output
+            has_thought_end = "<channel|>" in full_output
+            if has_thought_start and not has_thought_end:
+                text = ""
+                thinking = ""
+            elif thinking and thinking in text:
                 text = text.replace(thinking, "", 1).strip()
                 
             if thinking:

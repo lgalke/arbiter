@@ -1,7 +1,7 @@
 {
     "model_id": "Qwen/Qwen2.5-32B-Instruct",
     "topic": "default",
-    "rounds": 30,
+    "rounds": 15,
     "agents": [
         {
             "name": "Hannah",
